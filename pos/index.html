@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,20 +8,21 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-tailwind.config = {
-  theme: { extend: {
-    colors: {
-      bg:'#0B1114', surface:'#141D22', surface2:'#1A262D',
-      text:'#F8FAFC', muted:'#94A3B8', line:'rgba(255,255,255,0.08)',
-      primary:'#0EA5E9', primaryHover:'#0284C7', accent:'#F59E0B', danger:'#EF4444', success:'#10B981'
-    },
-    fontFamily: { display:['"Plus Jakarta Sans"','sans-serif'], sans:['Inter','sans-serif'] }
-  }}
-}
+tailwind.config = { theme: { extend: {
+  colors: { bg:'#0B1114', surface:'#141D22', surface2:'#1A262D', text:'#F8FAFC', muted:'#94A3B8', line:'rgba(255,255,255,0.08)', primary:'#0EA5E9', primaryHover:'#0284C7', accent:'#F59E0B', danger:'#EF4444', success:'#10B981' },
+  fontFamily: { display:['"Plus Jakarta Sans"','sans-serif'], sans:['Inter','sans-serif'] }
+}}}
 </script>
 <style>
   body { background-color: #0B1114; }
   input, select, textarea { color-scheme: dark; }
+  .bar { background: linear-gradient(180deg, #0EA5E9, #0284C7); border-radius: 4px 4px 0 0; min-height: 2px; transition: height .3s; }
+  @media print {
+    body * { visibility: hidden; }
+    #receiptContent, #receiptContent * { visibility: visible; }
+    #receiptContent { position: fixed; left: 0; top: 0; width: 100%; padding: 20px; background: #fff; color: #000; }
+    #receiptContent * { color: #000 !important; }
+  }
 </style>
 </head>
 <body class="bg-bg text-text font-sans antialiased min-h-screen">
@@ -32,18 +33,19 @@ tailwind.config = {
       <div class="w-9 h-9 rounded-lg bg-primary text-white flex items-center justify-center">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
       </div>
-      <div>
-        <p class="font-display font-bold text-sm leading-tight">Animal Planet</p>
-        <p class="text-[10px] text-muted leading-tight">POS &amp; Inventory</p>
-      </div>
+      <div><p class="font-display font-bold text-sm leading-tight">Animal Planet</p><p class="text-[10px] text-muted leading-tight">POS &amp; Inventory</p></div>
     </a>
-    <div class="text-xs text-muted" id="clock"></div>
+    <div class="flex items-center gap-2">
+      <button onclick="exportCSV()" class="text-xs bg-surface2 hover:bg-surface px-2 py-1.5 rounded-lg font-semibold">⬇ CSV</button>
+      <div class="text-xs text-muted hidden sm:block" id="clock"></div>
+    </div>
   </div>
   <nav class="max-w-6xl mx-auto px-4 flex gap-1 overflow-x-auto pb-2">
     <button data-tab="dash" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap">Dashboard</button>
     <button data-tab="meds" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap">Medicines</button>
     <button data-tab="animals" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap">Animals</button>
     <button data-tab="sale" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap">New Sale</button>
+    <button data-tab="history" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap">History</button>
   </nav>
 </header>
 
@@ -52,9 +54,16 @@ tailwind.config = {
     <h1 class="font-display text-2xl font-bold mb-1">Dashboard</h1>
     <p class="text-sm text-muted mb-6">Live overview of stock and activity.</p>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6" id="stats"></div>
+    <div class="bg-surface border border-line rounded-xl p-4 mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-display font-semibold text-sm">Last 7 Days Revenue</h2>
+        <span id="weekTotal" class="text-xs text-primary font-semibold"></span>
+      </div>
+      <div id="chart" class="flex items-end gap-1 h-32"></div>
+    </div>
     <div class="grid md:grid-cols-2 gap-4">
       <div class="bg-surface border border-line rounded-xl p-4">
-        <h2 class="font-display font-semibold text-sm mb-3">Low Stock Alerts</h2>
+        <h2 class="font-display font-semibold text-sm mb-3">⚠ Stock Alerts</h2>
         <div id="lowStock" class="space-y-2 text-sm"></div>
       </div>
       <div class="bg-surface border border-line rounded-xl p-4">
@@ -66,17 +75,14 @@ tailwind.config = {
 
   <section id="tab-meds" class="tab-panel hidden">
     <div class="flex items-center justify-between mb-4">
-      <div>
-        <h1 class="font-display text-2xl font-bold">Medicines</h1>
-        <p class="text-sm text-muted">Track inventory and stock levels.</p>
-      </div>
+      <div><h1 class="font-display text-2xl font-bold">Medicines</h1><p class="text-sm text-muted">Track inventory, stock & expiry.</p></div>
       <button onclick="openMedModal()" class="bg-primary hover:bg-primaryHover text-white text-sm font-semibold px-4 py-2 rounded-lg">+ Add</button>
     </div>
     <input id="medSearch" oninput="renderMeds()" placeholder="Search medicines..." class="w-full bg-surface border border-line rounded-lg px-4 py-2 text-sm mb-4 focus:outline-none focus:border-primary">
-    <div class="bg-surface border border-line rounded-xl overflow-hidden">
-      <table class="w-full text-sm">
+    <div class="bg-surface border border-line rounded-xl overflow-x-auto">
+      <table class="w-full text-sm min-w-[500px]">
         <thead class="bg-surface2 text-muted text-xs uppercase">
-          <tr><th class="text-left p-3">Name</th><th class="text-left p-3">Stock</th><th class="text-right p-3">Price</th><th class="text-right p-3"></th></tr>
+          <tr><th class="text-left p-3">Name</th><th class="text-left p-3">Stock</th><th class="text-left p-3">Expiry</th><th class="text-right p-3">Price</th><th class="text-right p-3"></th></tr>
         </thead>
         <tbody id="medRows"></tbody>
       </table>
@@ -85,18 +91,16 @@ tailwind.config = {
 
   <section id="tab-animals" class="tab-panel hidden">
     <div class="flex items-center justify-between mb-4">
-      <div>
-        <h1 class="font-display text-2xl font-bold">Animals</h1>
-        <p class="text-sm text-muted">Patient records.</p>
-      </div>
+      <div><h1 class="font-display text-2xl font-bold">Animals</h1><p class="text-sm text-muted">Patient records & visit history.</p></div>
       <button onclick="openAnimalModal()" class="bg-primary hover:bg-primaryHover text-white text-sm font-semibold px-4 py-2 rounded-lg">+ Add</button>
     </div>
+    <input id="animalSearch" oninput="renderAnimals()" placeholder="Search animals or owners..." class="w-full bg-surface border border-line rounded-lg px-4 py-2 text-sm mb-4 focus:outline-none focus:border-primary">
     <div id="animalGrid" class="grid sm:grid-cols-2 md:grid-cols-3 gap-3"></div>
   </section>
 
   <section id="tab-sale" class="tab-panel hidden">
     <h1 class="font-display text-2xl font-bold mb-1">New Sale</h1>
-    <p class="text-sm text-muted mb-6">Record a purchase and deduct from stock.</p>
+    <p class="text-sm text-muted mb-6">Record a purchase, get a receipt.</p>
     <div class="bg-surface border border-line rounded-xl p-4 max-w-md">
       <label class="block text-xs text-muted mb-1">Medicine</label>
       <select id="saleMed" class="w-full bg-surface2 border border-line rounded-lg px-3 py-2 text-sm mb-3"></select>
@@ -105,23 +109,50 @@ tailwind.config = {
       <label class="block text-xs text-muted mb-1">Animal (optional)</label>
       <select id="saleAnimal" class="w-full bg-surface2 border border-line rounded-lg px-3 py-2 text-sm mb-4"></select>
       <div class="flex items-center justify-between mb-4 text-sm">
-        <span class="text-muted">Total</span>
-        <span id="saleTotal" class="font-display text-xl font-bold text-primary">₦0</span>
+        <span class="text-muted">Total</span><span id="saleTotal" class="font-display text-xl font-bold text-primary">₦0</span>
       </div>
       <button onclick="recordSale()" class="w-full bg-primary hover:bg-primaryHover text-white font-semibold py-2.5 rounded-lg text-sm">Complete Sale</button>
     </div>
   </section>
+
+  <section id="tab-history" class="tab-panel hidden">
+    <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+      <div><h1 class="font-display text-2xl font-bold">Sales History</h1><p class="text-sm text-muted">Every sale on record.</p></div>
+      <div class="flex gap-2">
+        <input id="histFrom" type="date" class="bg-surface border border-line rounded-lg px-2 py-1.5 text-xs">
+        <input id="histTo" type="date" class="bg-surface border border-line rounded-lg px-2 py-1.5 text-xs">
+        <button onclick="renderHistory()" class="bg-primary text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Filter</button>
+      </div>
+    </div>
+    <div class="bg-surface border border-line rounded-xl p-4 mb-4">
+      <div class="flex items-center justify-between">
+        <span class="text-sm text-muted">Filtered total</span>
+        <span id="histTotal" class="font-display text-2xl font-bold text-primary">₦0</span>
+      </div>
+    </div>
+    <div class="bg-surface border border-line rounded-xl overflow-x-auto">
+      <table class="w-full text-sm min-w-[500px]">
+        <thead class="bg-surface2 text-muted text-xs uppercase">
+          <tr><th class="text-left p-3">Date</th><th class="text-left p-3">Medicine</th><th class="text-left p-3">Qty</th><th class="text-left p-3">Animal</th><th class="text-right p-3">Total</th><th class="text-right p-3"></th></tr>
+        </thead>
+        <tbody id="histRows"></tbody>
+      </table>
+    </div>
+  </section>
 </main>
 
+<!-- Med Modal -->
 <div id="medModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm items-center justify-center p-4">
-  <div class="bg-surface border border-line rounded-xl p-5 w-full max-w-sm">
+  <div class="bg-surface border border-line rounded-xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto">
     <h3 class="font-display font-bold text-lg mb-4" id="medModalTitle">Add Medicine</h3>
     <input id="medName" placeholder="Name" class="w-full bg-surface2 border border-line rounded-lg px-3 py-2 text-sm mb-2">
     <input id="medCat" placeholder="Category" class="w-full bg-surface2 border border-line rounded-lg px-3 py-2 text-sm mb-2">
-    <div class="grid grid-cols-2 gap-2 mb-4">
+    <div class="grid grid-cols-2 gap-2 mb-2">
       <input id="medStock" type="number" placeholder="Stock" class="bg-surface2 border border-line rounded-lg px-3 py-2 text-sm">
-      <input id="medPrice" type="number" placeholder="Price" class="bg-surface2 border border-line rounded-lg px-3 py-2 text-sm">
+      <input id="medPrice" type="number" placeholder="Price ₦" class="bg-surface2 border border-line rounded-lg px-3 py-2 text-sm">
     </div>
+    <label class="block text-xs text-muted mb-1">Expiry date (optional)</label>
+    <input id="medExpiry" type="date" class="w-full bg-surface2 border border-line rounded-lg px-3 py-2 text-sm mb-4">
     <div class="flex gap-2">
       <button onclick="closeMedModal()" class="flex-1 bg-surface2 text-sm font-semibold py-2 rounded-lg">Cancel</button>
       <button onclick="saveMed()" class="flex-1 bg-primary text-white text-sm font-semibold py-2 rounded-lg">Save</button>
@@ -129,8 +160,9 @@ tailwind.config = {
   </div>
 </div>
 
+<!-- Animal Modal -->
 <div id="animalModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm items-center justify-center p-4">
-  <div class="bg-surface border border-line rounded-xl p-5 w-full max-w-sm">
+  <div class="bg-surface border border-line rounded-xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto">
     <h3 class="font-display font-bold text-lg mb-4">Add Animal</h3>
     <input id="anName" placeholder="Animal name" class="w-full bg-surface2 border border-line rounded-lg px-3 py-2 text-sm mb-2">
     <input id="anSpecies" placeholder="Species" class="w-full bg-surface2 border border-line rounded-lg px-3 py-2 text-sm mb-2">
@@ -144,15 +176,37 @@ tailwind.config = {
   </div>
 </div>
 
+<!-- Receipt Modal -->
+<div id="receiptModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm items-center justify-center p-4">
+  <div class="bg-surface border border-line rounded-xl p-5 w-full max-w-sm">
+    <div id="receiptContent" class="bg-white text-black rounded-lg p-4 mb-4 text-sm font-mono"></div>
+    <div class="flex gap-2">
+      <button onclick="closeReceipt()" class="flex-1 bg-surface2 text-sm font-semibold py-2 rounded-lg">Close</button>
+      <button onclick="printReceipt()" class="flex-1 bg-surface2 text-sm font-semibold py-2 rounded-lg">🖨 Print</button>
+      <button onclick="shareReceipt()" class="flex-1 bg-primary text-white text-sm font-semibold py-2 rounded-lg">Share</button>
+    </div>
+  </div>
+</div>
+
+<!-- Visit History Modal -->
+<div id="visitModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm items-center justify-center p-4">
+  <div class="bg-surface border border-line rounded-xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto">
+    <h3 class="font-display font-bold text-lg mb-1" id="visitTitle">Visit History</h3>
+    <p class="text-xs text-muted mb-3" id="visitSub"></p>
+    <div id="visitList" class="space-y-2 text-sm"></div>
+    <button onclick="closeVisit()" class="w-full bg-surface2 text-sm font-semibold py-2 rounded-lg mt-4">Close</button>
+  </div>
+</div>
+
 <script>
 const LS = { meds:'ap_meds', animals:'ap_animals', sales:'ap_sales' };
-let state = { meds:[], animals:[], sales:[], tab:'dash', editMedId:null };
+let state = { meds:[], animals:[], sales:[], tab:'dash', editMedId:null, currentReceipt:null };
 
 const seedMeds = [
-  { id:'m1', name:'Amoxicillin 250mg', cat:'Antibiotic', stock:48, price:1500 },
-  { id:'m2', name:'Anti-Rabies Vaccine', cat:'Vaccine', stock:12, price:4500 },
-  { id:'m3', name:'Deworming Tablets', cat:'Antiparasitic', stock:6, price:800 },
-  { id:'m4', name:'Flea & Tick Spray', cat:'Topical', stock:20, price:3200 }
+  { id:'m1', name:'Amoxicillin 250mg', cat:'Antibiotic', stock:48, price:1500, expiry:'2026-08-30' },
+  { id:'m2', name:'Anti-Rabies Vaccine', cat:'Vaccine', stock:12, price:4500, expiry:'2026-03-15' },
+  { id:'m3', name:'Deworming Tablets', cat:'Antiparasitic', stock:6, price:800, expiry:'2025-12-01' },
+  { id:'m4', name:'Flea & Tick Spray', cat:'Topical', stock:20, price:3200, expiry:'' }
 ];
 const seedAnimals = [
   { id:'a1', name:'Bingo', species:'Dog', owner:'Aliyu Musa', phone:'08012345678', notes:'Vaccination due next month' },
@@ -171,6 +225,7 @@ function persist(){
   localStorage.setItem(LS.sales, JSON.stringify(state.sales));
 }
 function ngn(n){ return '₦' + Number(n).toLocaleString(); }
+function daysUntil(d){ if(!d) return null; return Math.ceil((new Date(d) - new Date()) / 86400000); }
 
 function setTab(t){
   state.tab = t;
@@ -184,22 +239,46 @@ function setTab(t){
   if(t==='meds') renderMeds();
   if(t==='animals') renderAnimals();
   if(t==='sale') renderSale();
+  if(t==='history') renderHistory();
 }
 
 function renderDash(){
   const low = state.meds.filter(m=>m.stock<=10).length;
+  const expiring = state.meds.filter(m=>{const d=daysUntil(m.expiry); return d!==null && d>=0 && d<=30;}).length;
   const today = new Date().toISOString().slice(0,10);
   const todayTotal = state.sales.filter(s=>s.date===today).reduce((a,s)=>a+s.total,0);
   document.getElementById('stats').innerHTML = `
     ${statCard('Medicines', state.meds.length, 'primary')}
     ${statCard('Low Stock', low, low>0?'danger':'success')}
-    ${statCard('Animals', state.animals.length, 'primary')}
-    ${statCard("Today's Sales", ngn(todayTotal), 'accent')}`;
-  const lowItems = state.meds.filter(m=>m.stock<=10);
-  document.getElementById('lowStock').innerHTML = lowItems.length ? lowItems.map(m=>`
-    <div class="flex items-center justify-between bg-surface2 rounded-lg px-3 py-2">
-      <span>${m.name}</span><span class="text-danger font-semibold">${m.stock} left</span>
-    </div>`).join('') : '<p class="text-muted">All good 👍</p>';
+    ${statCard('Expiring <30d', expiring, expiring>0?'accent':'success')}
+    ${statCard("Today's Sales", ngn(todayTotal), 'primary')}`;
+
+  // Chart last 7 days
+  const days=[]; for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days.push(d.toISOString().slice(0,10));}
+  const totals = days.map(d=>state.sales.filter(s=>s.date===d).reduce((a,s)=>a+s.total,0));
+  const max = Math.max(...totals, 1);
+  const weekTotal = totals.reduce((a,b)=>a+b,0);
+  document.getElementById('weekTotal').textContent = ngn(weekTotal);
+  document.getElementById('chart').innerHTML = days.map((d,i)=>{
+    const pct = (totals[i]/max)*100;
+    const label = new Date(d).toLocaleDateString('en-GB',{weekday:'short'}).slice(0,2);
+    return `<div class="flex-1 flex flex-col items-center justify-end h-full gap-1">
+      <div class="text-[9px] text-muted">${totals[i]?Math.round(totals[i]/1000)+'k':''}</div>
+      <div class="bar w-full" style="height:${Math.max(pct,2)}%"></div>
+      <div class="text-[9px] text-muted">${label}</div>
+    </div>`;
+  }).join('');
+
+  // Alerts: low stock + expired/expiring
+  const alerts = [];
+  state.meds.forEach(m=>{
+    if(m.stock<=10) alerts.push(`<div class="flex items-center justify-between bg-surface2 rounded-lg px-3 py-2"><span>${m.name}</span><span class="text-danger font-semibold">${m.stock} left</span></div>`);
+    const d = daysUntil(m.expiry);
+    if(d!==null && d<0) alerts.push(`<div class="flex items-center justify-between bg-danger/20 rounded-lg px-3 py-2"><span>${m.name}</span><span class="text-danger font-semibold">EXPIRED</span></div>`);
+    else if(d!==null && d<=30) alerts.push(`<div class="flex items-center justify-between bg-accent/20 rounded-lg px-3 py-2"><span>${m.name}</span><span class="text-accent font-semibold">${d}d left</span></div>`);
+  });
+  document.getElementById('lowStock').innerHTML = alerts.length ? alerts.join('') : '<p class="text-muted">All good 👍</p>';
+
   const recent = state.sales.slice(-5).reverse();
   document.getElementById('recentSales').innerHTML = recent.length ? recent.map(s=>`
     <div class="flex items-center justify-between bg-surface2 rounded-lg px-3 py-2">
@@ -209,41 +288,68 @@ function renderDash(){
 }
 function statCard(label, value, color){
   const c = { primary:'text-primary', danger:'text-danger', success:'text-success', accent:'text-accent' }[color];
-  return `<div class="bg-surface border border-line rounded-xl p-4">
-    <p class="text-xs text-muted mb-1">${label}</p>
-    <p class="font-display text-2xl font-bold ${c}">${value}</p>
-  </div>`;
+  return `<div class="bg-surface border border-line rounded-xl p-4"><p class="text-xs text-muted mb-1">${label}</p><p class="font-display text-2xl font-bold ${c}">${value}</p></div>`;
 }
 
 function renderMeds(){
   const q = (document.getElementById('medSearch')?.value || '').toLowerCase();
   const rows = state.meds.filter(m=>m.name.toLowerCase().includes(q) || m.cat.toLowerCase().includes(q));
-  document.getElementById('medRows').innerHTML = rows.length ? rows.map(m=>`
-    <tr class="border-t border-line">
+  document.getElementById('medRows').innerHTML = rows.length ? rows.map(m=>{
+    const d = daysUntil(m.expiry);
+    let expTxt='—', expCls='text-muted';
+    if(m.expiry){
+      if(d<0){ expTxt='EXPIRED'; expCls='text-danger font-bold'; }
+      else if(d<=30){ expTxt=d+'d'; expCls='text-accent font-semibold'; }
+      else { expTxt=new Date(m.expiry).toLocaleDateString('en-GB',{month:'short',year:'2-digit'}); expCls='text-muted'; }
+    }
+    return `<tr class="border-t border-line">
       <td class="p-3"><p class="font-medium">${m.name}</p><p class="text-xs text-muted">${m.cat}</p></td>
       <td class="p-3"><span class="${m.stock<=10?'text-danger':'text-success'} font-semibold">${m.stock}</span></td>
+      <td class="p-3 text-xs ${expCls}">${expTxt}</td>
       <td class="p-3 text-right">${ngn(m.price)}</td>
       <td class="p-3 text-right whitespace-nowrap">
         <button onclick="openMedModal('${m.id}')" class="text-xs text-primary font-semibold mr-3">Edit</button>
         <button onclick="delMed('${m.id}')" class="text-xs text-danger font-semibold">Del</button>
       </td>
-    </tr>`).join('') : '<tr><td colspan="4" class="p-6 text-center text-muted">No medicines</td></tr>';
+    </tr>`;
+  }).join('') : '<tr><td colspan="5" class="p-6 text-center text-muted">No medicines</td></tr>';
 }
 
 function renderAnimals(){
-  document.getElementById('animalGrid').innerHTML = state.animals.map(a=>`
-    <div class="bg-surface border border-line rounded-xl p-4">
+  const q = (document.getElementById('animalSearch')?.value || '').toLowerCase();
+  const list = state.animals.filter(a => a.name.toLowerCase().includes(q) || a.owner.toLowerCase().includes(q) || a.species.toLowerCase().includes(q));
+  document.getElementById('animalGrid').innerHTML = list.map(a=>{
+    const visits = state.sales.filter(s=>s.animalId===a.id).length;
+    return `<div onclick="openVisit('${a.id}')" class="bg-surface border border-line rounded-xl p-4 cursor-pointer hover:border-primary transition">
       <div class="flex items-start justify-between mb-2">
         <div><p class="font-display font-bold">${a.name}</p><p class="text-xs text-muted">${a.species}</p></div>
-        <button onclick="delAnimal('${a.id}')" class="text-xs text-danger">✕</button>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">${visits} visits</span>
+          <button onclick="event.stopPropagation();delAnimal('${a.id}')" class="text-xs text-danger">✕</button>
+        </div>
       </div>
       <div class="text-xs space-y-1 text-muted">
-        <p>👤 ${a.owner}</p>
-        <p>📞 ${a.phone}</p>
+        <p>👤 ${a.owner}</p><p>📞 ${a.phone}</p>
         ${a.notes ? `<p class="pt-1 border-t border-line mt-2">${a.notes}</p>` : ''}
       </div>
-    </div>`).join('') || '<p class="text-muted">No animals yet</p>';
+    </div>`;
+  }).join('') || '<p class="text-muted col-span-full">No animals found</p>';
 }
+
+function openVisit(id){
+  const a = state.animals.find(x=>x.id===id);
+  const sales = state.sales.filter(s=>s.animalId===id).reverse();
+  document.getElementById('visitTitle').textContent = a.name;
+  document.getElementById('visitSub').textContent = `${a.species} · Owner: ${a.owner}`;
+  document.getElementById('visitList').innerHTML = sales.length ? sales.map(s=>`
+    <div class="flex items-center justify-between bg-surface2 rounded-lg px-3 py-2">
+      <div><p class="font-medium">${s.medName}</p><p class="text-xs text-muted">${s.date} · ×${s.qty}</p></div>
+      <span class="text-primary font-semibold">${ngn(s.total)}</span>
+    </div>`).join('') : '<p class="text-muted text-sm">No purchases yet</p>';
+  document.getElementById('visitModal').classList.remove('hidden');
+  document.getElementById('visitModal').classList.add('flex');
+}
+function closeVisit(){ document.getElementById('visitModal').classList.add('hidden'); document.getElementById('visitModal').classList.remove('flex'); }
 
 function renderSale(){
   const sel = document.getElementById('saleMed');
@@ -268,11 +374,75 @@ function recordSale(){
   const m = state.meds.find(x=>x.id===id);
   if(qty > m.stock){ alert('Not enough stock'); return; }
   m.stock -= qty;
-  state.sales.push({ id:'s'+Date.now(), medId:id, medName:m.name, qty, total:m.price*qty, animalId:animalId||null, date:new Date().toISOString().slice(0,10) });
+  const sale = { id:'s'+Date.now(), medId:id, medName:m.name, qty, price:m.price, total:m.price*qty, animalId:animalId||null, date:new Date().toISOString().slice(0,10), time:new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) };
+  state.sales.push(sale);
   persist();
   document.getElementById('saleQty').value = 1;
   renderSale();
-  alert('Sale recorded ✓');
+  showReceipt(sale);
+}
+function showReceipt(s){
+  state.currentReceipt = s;
+  const a = s.animalId ? state.animals.find(x=>x.id===s.animalId) : null;
+  document.getElementById('receiptContent').innerHTML = `
+    <div class="text-center mb-3 pb-3 border-b border-dashed border-gray-400">
+      <p class="font-bold text-lg">ANIMAL PLANET</p>
+      <p class="text-xs">Veterinary Clinic & Supplies</p>
+    </div>
+    <div class="text-xs mb-3 flex justify-between"><span>${s.date}</span><span>${s.time||''}</span></div>
+    <div class="text-xs mb-1 flex justify-between"><span>${s.medName}</span><span>×${s.qty}</span></div>
+    <div class="text-xs flex justify-between mb-3"><span></span><span>${ngn(s.price)} ea</span></div>
+    ${a ? `<div class="text-xs mb-3">Patient: ${a.name} (${a.owner})</div>` : ''}
+    <div class="border-t border-dashed border-gray-400 pt-2 flex justify-between font-bold">
+      <span>TOTAL</span><span>${ngn(s.total)}</span>
+    </div>
+    <p class="text-center text-[10px] mt-3">Thank you 🐾</p>`;
+  document.getElementById('receiptModal').classList.remove('hidden');
+  document.getElementById('receiptModal').classList.add('flex');
+}
+function closeReceipt(){ document.getElementById('receiptModal').classList.add('hidden'); document.getElementById('receiptModal').classList.remove('flex'); }
+function printReceipt(){ window.print(); }
+function shareReceipt(){
+  const s = state.currentReceipt; if(!s) return;
+  const a = s.animalId ? state.animals.find(x=>x.id===s.animalId) : null;
+  const text = `🐾 ANIMAL PLANET Receipt\n${s.date} ${s.time||''}\n\n${s.medName} ×${s.qty} — ${ngn(s.price)} ea\n${a?'Patient: '+a.name+'\n':''}\nTOTAL: ${ngn(s.total)}\n\nThank you!`;
+  if(navigator.share){ navigator.share({ title:'Animal Planet Receipt', text }).catch(()=>{}); }
+  else { navigator.clipboard.writeText(text).then(()=>alert('Receipt copied — paste into WhatsApp')); }
+}
+
+function renderHistory(){
+  const from = document.getElementById('histFrom').value;
+  const to = document.getElementById('histTo').value;
+  let rows = state.sales.slice().reverse();
+  if(from) rows = rows.filter(s=>s.date>=from);
+  if(to) rows = rows.filter(s=>s.date<=to);
+  document.getElementById('histTotal').textContent = ngn(rows.reduce((a,s)=>a+s.total,0));
+  document.getElementById('histRows').innerHTML = rows.length ? rows.map(s=>{
+    const a = s.animalId ? state.animals.find(x=>x.id===s.animalId) : null;
+    return `<tr class="border-t border-line">
+      <td class="p-3 text-xs">${s.date}</td>
+      <td class="p-3">${s.medName}</td>
+      <td class="p-3">${s.qty}</td>
+      <td class="p-3 text-xs text-muted">${a?a.name:'—'}</td>
+      <td class="p-3 text-right font-semibold">${ngn(s.total)}</td>
+      <td class="p-3 text-right"><button onclick='showReceipt(${JSON.stringify(s).replace(/'/g,"&apos;")})' class="text-xs text-primary font-semibold">Receipt</button></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" class="p-6 text-center text-muted">No sales</td></tr>';
+}
+
+function exportCSV(){
+  const rows = [['Date','Time','Medicine','Qty','Unit Price','Total','Animal']];
+  state.sales.forEach(s=>{
+    const a = s.animalId ? state.animals.find(x=>x.id===s.animalId) : null;
+    rows.push([s.date, s.time||'', s.medName, s.qty, s.price||'', s.total, a?a.name:'']);
+  });
+  const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `animal-planet-sales-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function openMedModal(id){
@@ -283,20 +453,19 @@ function openMedModal(id){
   document.getElementById('medCat').value = m?.cat || '';
   document.getElementById('medStock').value = m?.stock ?? '';
   document.getElementById('medPrice').value = m?.price ?? '';
+  document.getElementById('medExpiry').value = m?.expiry || '';
   document.getElementById('medModal').classList.remove('hidden');
   document.getElementById('medModal').classList.add('flex');
 }
-function closeMedModal(){
-  document.getElementById('medModal').classList.add('hidden');
-  document.getElementById('medModal').classList.remove('flex');
-}
+function closeMedModal(){ document.getElementById('medModal').classList.add('hidden'); document.getElementById('medModal').classList.remove('flex'); }
 function saveMed(){
   const name = document.getElementById('medName').value.trim();
   if(!name){ alert('Name required'); return; }
   const data = {
     name, cat: document.getElementById('medCat').value.trim() || 'General',
     stock: Number(document.getElementById('medStock').value) || 0,
-    price: Number(document.getElementById('medPrice').value) || 0
+    price: Number(document.getElementById('medPrice').value) || 0,
+    expiry: document.getElementById('medExpiry').value || ''
   };
   if(state.editMedId) Object.assign(state.meds.find(x=>x.id===state.editMedId), data);
   else state.meds.push({ id:'m'+Date.now(), ...data });
@@ -309,10 +478,7 @@ function openAnimalModal(){
   document.getElementById('animalModal').classList.remove('hidden');
   document.getElementById('animalModal').classList.add('flex');
 }
-function closeAnimalModal(){
-  document.getElementById('animalModal').classList.add('hidden');
-  document.getElementById('animalModal').classList.remove('flex');
-}
+function closeAnimalModal(){ document.getElementById('animalModal').classList.add('hidden'); document.getElementById('animalModal').classList.remove('flex'); }
 function saveAnimal(){
   const name = document.getElementById('anName').value.trim();
   if(!name){ alert('Name required'); return; }
@@ -327,7 +493,7 @@ function saveAnimal(){
 }
 function delAnimal(id){ if(!confirm('Delete this animal?')) return; state.animals = state.animals.filter(x=>x.id!==id); persist(); renderAnimals(); }
 
-setInterval(()=>{ document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); },1000);
+setInterval(()=>{ const el = document.getElementById('clock'); if(el) el.textContent = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); },1000);
 document.querySelectorAll('.tab-btn').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 load();
 setTab('dash');
