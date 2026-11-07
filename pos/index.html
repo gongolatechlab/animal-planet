@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Animal Planet POS</title>
+<title>NZE Animal Planet POS</title>
 <meta name="theme-color" content="#0B1114">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
@@ -33,7 +33,7 @@ tailwind.config = { theme: { extend: {
       <div class="w-9 h-9 rounded-lg bg-primary text-white flex items-center justify-center">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
       </div>
-      <div><p class="font-display font-bold text-sm leading-tight">Animal Planet</p><p class="text-[10px] text-muted leading-tight">POS &amp; Inventory</p></div>
+      <div><p class="font-display font-bold text-sm leading-tight">NZE Animal Planet</p><p class="text-[10px] text-muted leading-tight">Agro-Vet POS</p></div>
     </a>
     <div class="flex items-center gap-2">
       <button onclick="exportCSV()" class="text-xs bg-surface2 hover:bg-surface px-2 py-1.5 rounded-lg font-semibold">⬇ CSV</button>
@@ -386,8 +386,8 @@ function showReceipt(s){
   const a = s.animalId ? state.animals.find(x=>x.id===s.animalId) : null;
   document.getElementById('receiptContent').innerHTML = `
     <div class="text-center mb-3 pb-3 border-b border-dashed border-gray-400">
-      <p class="font-bold text-lg">ANIMAL PLANET</p>
-      <p class="text-xs">Veterinary Clinic & Supplies</p>
+      <p class="font-bold text-sm">NZE ANIMAL PLANET & AGRO-VET</p>
+      <p class="text-[10px]">Every Life Matters<br>+234 802 219 2130</p>
     </div>
     <div class="text-xs mb-3 flex justify-between"><span>${s.date}</span><span>${s.time||''}</span></div>
     <div class="text-xs mb-1 flex justify-between"><span>${s.medName}</span><span>×${s.qty}</span></div>
@@ -396,7 +396,7 @@ function showReceipt(s){
     <div class="border-t border-dashed border-gray-400 pt-2 flex justify-between font-bold">
       <span>TOTAL</span><span>${ngn(s.total)}</span>
     </div>
-    <p class="text-center text-[10px] mt-3">Thank you 🐾</p>`;
+    <p class="text-center text-[10px] mt-3">Every Life Matters 🐾</p>`;
   document.getElementById('receiptModal').classList.remove('hidden');
   document.getElementById('receiptModal').classList.add('flex');
 }
